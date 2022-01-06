@@ -119,7 +119,7 @@ extension TypedPubChannel where Self: TypedSubChannel {
 
 extension PubChannel {
     
-    func asTypedChannel<Event>() -> AnyTypedPubChannel<Event> {
+    public func asTypedChannel<Event>() -> AnyTypedPubChannel<Event> {
         
         return AnyTypedPubChannel<Event> { event in
             
@@ -130,7 +130,7 @@ extension PubChannel {
 
 extension SubChannel {
     
-    func asTypedChannel<Event>() -> AnyTypedSubChannel<Event> {
+    public func asTypedChannel<Event>() -> AnyTypedSubChannel<Event> {
         
         return AnyTypedSubChannel<Event> { handler in
             
@@ -141,7 +141,7 @@ extension SubChannel {
 
 extension SubChannel where Self: PubChannel {
     
-    func asTypedChannel<Event>() -> AnyTypedChannel<Event> {
+    public func asTypedChannel<Event>() -> AnyTypedChannel<Event> {
         
         return AnyTypedChannel<Event>(
             pubChannel: self.asTypedChannel(),

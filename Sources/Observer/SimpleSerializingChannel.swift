@@ -12,7 +12,7 @@ class SimpleSerializingChannel<Decoder: TopLevelDecoder, Encoder: TopLevelEncode
         underlyingChannel: UnderlyingChannel,
         decoder: Decoder,
         encoder: Encoder
-    ) where UnderlyingChannel.Event == Decoder.Input {
+    ) where UnderlyingChannel.Value == Decoder.Input {
 
         self.publishImp = underlyingChannel.publish
 
@@ -22,24 +22,24 @@ class SimpleSerializingChannel<Decoder: TopLevelDecoder, Encoder: TopLevelEncode
         self.underlyingSubscription = underlyingChannel.subscribe(channel.publish)
     }
 
-    func publish<Event: Encodable>(_ event: Event) {
+    func publish<Value: Encodable>(_ value: Value) {
 
-        guard let payload = try? encoder.encode(event) else { return }
+        guard let encoded = try? encoder.encode(value) else { return }
 
-        self.publishImp(payload)
+        self.publishImp(encoded)
     }
 
-    func subscribe<Event: Decodable>(_ handler: @escaping (Event) -> Void) -> Subscription {
+    func subscribe<Value: Decodable>(_ handler: @escaping (Value) -> Void) -> Subscription {
 
         let decoder = self.decoder
 
-        return channel.subscribe { (payload: Decoder.Input) in
+        return channel.subscribe { (encoded: Decoder.Input) in
 
-            guard let event = try? decoder.decode(Event.self, from: payload) else {
+            guard let value = try? decoder.decode(Value.self, from: encoded) else {
                 return
             }
 
-            handler(event)
+            handler(value)
         }
     }
 
@@ -60,7 +60,7 @@ extension SimpleSerializingChannel where Decoder == JSONDecoder, Encoder == JSON
 
     convenience init<UnderlyingChannel: TypedChannel>(
         underlyingChannel: UnderlyingChannel
-    ) where UnderlyingChannel.Event == Decoder.Input {
+    ) where UnderlyingChannel.Value == Decoder.Input {
 
         self.init(
             underlyingChannel: underlyingChannel,

@@ -6,40 +6,40 @@ import Foundation
 
 public protocol TypedPubChannel {
 
-    associatedtype Event
+    associatedtype Value
 
-    func publish(_ payload: Event)
+    func publish(_ value: Value)
 }
 
-public class AnyTypedPubChannel<Event> : TypedPubChannel {
+public class AnyTypedPubChannel<Value> : TypedPubChannel {
     
-    convenience init<Channel: TypedPubChannel>(channel: Channel) where Channel.Event == Event {
+    convenience init<Channel: TypedPubChannel>(channel: Channel) where Channel.Value == Value {
         
         self.init(publishImp: channel.publish)
     }
     
-    init(publishImp: @escaping (Event) -> Void) {
+    init(publishImp: @escaping (Value) -> Void) {
         
         self.publishImp = publishImp
     }
     
-    public func publish(_ payload: Event) {
+    public func publish(_ value: Value) {
         
-        publishImp(payload)
+        publishImp(value)
     }
     
-    private let publishImp: (Event) -> Void
+    private let publishImp: (Value) -> Void
 }
 
 extension TypedPubChannel {
     
-    public func erase() -> AnyTypedPubChannel<Event> {
+    public func erase() -> AnyTypedPubChannel<Value> {
         
         return AnyTypedPubChannel(channel: self)
     }
 }
 
-extension TypedPubChannel where Event == Void {
+extension TypedPubChannel where Value == Void {
     
     public func publish() {
         
@@ -49,40 +49,40 @@ extension TypedPubChannel where Event == Void {
 
 public protocol TypedSubChannel {
 
-    associatedtype Event
+    associatedtype Value
 
-    func subscribe(_ handler: @escaping (Event) -> Void) -> Subscription
+    func subscribe(_ handler: @escaping (Value) -> Void) -> Subscription
 }
 
-public class AnyTypedSubChannel<Event> : TypedSubChannel {
+public class AnyTypedSubChannel<Value> : TypedSubChannel {
     
-    convenience init<Channel: TypedSubChannel>(channel: Channel) where Channel.Event == Event {
+    convenience init<Channel: TypedSubChannel>(channel: Channel) where Channel.Value == Value {
         
         self.init(subscribeImp: channel.subscribe)
     }
     
-    init(subscribeImp: @escaping (@escaping (Event) -> Void) -> Subscription) {
+    init(subscribeImp: @escaping (@escaping (Value) -> Void) -> Subscription) {
         
         self.subscribeImp = subscribeImp
     }
     
-    public func subscribe(_ handler: @escaping (Event) -> Void) -> Subscription {
+    public func subscribe(_ handler: @escaping (Value) -> Void) -> Subscription {
         
         return subscribeImp(handler)
     }
     
-    private let subscribeImp: (@escaping (Event) -> Void) -> Subscription
+    private let subscribeImp: (@escaping (Value) -> Void) -> Subscription
 }
 
 extension TypedSubChannel {
     
-    public func erase() -> AnyTypedSubChannel<Event> {
+    public func erase() -> AnyTypedSubChannel<Value> {
         
         return AnyTypedSubChannel(channel: self)
     }
 }
 
-extension TypedSubChannel where Event == Void {
+extension TypedSubChannel where Value == Void {
     
     public func subscribe(_ handler: @escaping () -> Void) -> Subscription {
         
@@ -92,9 +92,9 @@ extension TypedSubChannel where Event == Void {
 
 public typealias TypedChannel = TypedPubChannel & TypedSubChannel
 
-public class AnyTypedChannel<Event> : TypedChannel {
+public class AnyTypedChannel<Value> : TypedChannel {
     
-    convenience init<Channel: TypedChannel>(channel: Channel) where Channel.Event == Event {
+    convenience init<Channel: TypedChannel>(channel: Channel) where Channel.Value == Value {
         
         self.init(
             pubChannel: channel.erase(),
@@ -103,31 +103,31 @@ public class AnyTypedChannel<Event> : TypedChannel {
     }
     
     init(
-        pubChannel: AnyTypedPubChannel<Event>,
-        subChannel: AnyTypedSubChannel<Event>
+        pubChannel: AnyTypedPubChannel<Value>,
+        subChannel: AnyTypedSubChannel<Value>
     ) {
         
         self.pubChannel = pubChannel
         self.subChannel = subChannel
     }
     
-    public func publish(_ payload: Event) {
+    public func publish(_ value: Value) {
         
-        pubChannel.publish(payload)
+        pubChannel.publish(value)
     }
     
-    public func subscribe(_ handler: @escaping (Event) -> Void) -> Subscription {
+    public func subscribe(_ handler: @escaping (Value) -> Void) -> Subscription {
         
         return subChannel.subscribe(handler)
     }
     
-    private let pubChannel: AnyTypedPubChannel<Event>
-    private let subChannel: AnyTypedSubChannel<Event>
+    private let pubChannel: AnyTypedPubChannel<Value>
+    private let subChannel: AnyTypedSubChannel<Value>
 }
 
 extension TypedPubChannel where Self: TypedSubChannel {
     
-    public func erase() -> AnyTypedChannel<Event> {
+    public func erase() -> AnyTypedChannel<Value> {
         
         return AnyTypedChannel(channel: self)
     }
@@ -135,20 +135,20 @@ extension TypedPubChannel where Self: TypedSubChannel {
 
 extension PubChannel {
     
-    public func asTypedChannel<Event>() -> AnyTypedPubChannel<Event> {
+    public func asTypedChannel<Value>() -> AnyTypedPubChannel<Value> {
         
-        return AnyTypedPubChannel<Event> { event in
+        return AnyTypedPubChannel<Value> { value in
             
-            self.publish(event)
+            self.publish(value)
         }
     }
 }
 
 extension SubChannel {
     
-    public func asTypedChannel<Event>() -> AnyTypedSubChannel<Event> {
+    public func asTypedChannel<Value>() -> AnyTypedSubChannel<Value> {
         
-        return AnyTypedSubChannel<Event> { handler in
+        return AnyTypedSubChannel<Value> { handler in
             
             return self.subscribe(handler)
         }
@@ -157,9 +157,9 @@ extension SubChannel {
 
 extension SubChannel where Self: PubChannel {
     
-    public func asTypedChannel<Event>() -> AnyTypedChannel<Event> {
+    public func asTypedChannel<Value>() -> AnyTypedChannel<Value> {
         
-        return AnyTypedChannel<Event>(
+        return AnyTypedChannel<Value>(
             pubChannel: self.asTypedChannel(),
             subChannel: self.asTypedChannel()
         )

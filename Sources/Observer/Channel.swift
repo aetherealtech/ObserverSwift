@@ -6,12 +6,12 @@ import Foundation
 
 public protocol PubChannel : SerializingPubChannel {
 
-    func publish<Event>(_ event: Event)
+    func publish<Value>(_ value: Value)
 }
 
 public protocol SubChannel : SerializingSubChannel {
 
-    func subscribe<Event>(_ handler: @escaping (Event) -> Void) -> Subscription
+    func subscribe<Value>(_ handler: @escaping (Value) -> Void) -> Subscription
 }
 
 public typealias Channel = PubChannel & SubChannel

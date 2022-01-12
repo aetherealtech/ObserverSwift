@@ -12,7 +12,7 @@ import XCTest
 @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
 class SerializingChannelTests: XCTestCase {
 
-    struct TestEvent : Codable, Equatable {
+    struct TestValue : Codable, Equatable {
 
         struct Child : Codable, Equatable {
 
@@ -33,24 +33,24 @@ class SerializingChannelTests: XCTestCase {
             underlyingChannel: underlyingChannel
         )
 
-        var receivedEvent1: TestEvent?
-        var receivedEvent2: TestEvent?
+        var receivedValue1: TestValue?
+        var receivedValue2: TestValue?
 
-        let subscription1 = channel.subscribe { event in receivedEvent1 = event }
-        let subscription2 = channel.subscribe { event in receivedEvent2 = event }
+        let subscription1 = channel.subscribe { value in receivedValue1 = value }
+        let subscription2 = channel.subscribe { value in receivedValue2 = value }
 
-        let testEvent = TestEvent(
+        let testValue = TestValue(
             string: "Test",
             int: 5,
-            child: TestEvent.Child(
+            child: TestValue.Child(
                 string: "Moire",
                 array: ["1", "2", "3"]
             )
         )
 
-        channel.publish(testEvent)
+        channel.publish(testValue)
 
-        XCTAssertEqual(receivedEvent1, testEvent)
-        XCTAssertEqual(receivedEvent2, testEvent)
+        XCTAssertEqual(receivedValue1, testValue)
+        XCTAssertEqual(receivedValue2, testValue)
     }
 }

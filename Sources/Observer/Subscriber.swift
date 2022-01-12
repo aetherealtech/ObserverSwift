@@ -6,24 +6,24 @@ import Foundation
 
 protocol Subscriber: AnyObject {
 
-    func receive<ReceivedEvent>(_ event: ReceivedEvent)
+    func receive<ReceivedValue>(_ value: ReceivedValue)
 }
 
-class TypeMatchingSubscriber<Event> : Subscriber {
+class TypeMatchingSubscriber<Value> : Subscriber {
 
-    init(handler: @escaping (Event) -> Void) {
+    init(handler: @escaping (Value) -> Void) {
 
         self.handler = handler
     }
 
-    func receive<ReceivedEvent>(_ event: ReceivedEvent) {
+    func receive<ReceivedValue>(_ value: ReceivedValue) {
 
-        guard let matchingEvent = event as? Event else {
+        guard let matchingValue = value as? Value else {
             return
         }
 
-        handler(matchingEvent)
+        handler(matchingValue)
     }
 
-    private let handler: (Event) -> Void
+    private let handler: (Value) -> Void
 }

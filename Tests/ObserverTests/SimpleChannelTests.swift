@@ -10,7 +10,7 @@ import XCTest
 
 class SimpleChannelTests: XCTestCase {
 
-    class TestEvent : Equatable {
+    class TestValue : Equatable {
 
         init(payload: String) {
 
@@ -19,18 +19,18 @@ class SimpleChannelTests: XCTestCase {
 
         let payload: String
 
-        static func ==(lhs: SimpleChannelTests.TestEvent, rhs: SimpleChannelTests.TestEvent) -> Bool {
+        static func ==(lhs: SimpleChannelTests.TestValue, rhs: SimpleChannelTests.TestValue) -> Bool {
 
             lhs.equals(rhs)
         }
 
-        func equals(_ other: TestEvent) -> Bool {
+        func equals(_ other: TestValue) -> Bool {
 
             payload == other.payload
         }
     }
 
-    class TestDerivedEvent : TestEvent {
+    class TestDerivedValue : TestValue {
 
         init(
             payload: String,
@@ -44,16 +44,16 @@ class SimpleChannelTests: XCTestCase {
 
         let extra: String
 
-        override func equals(_ other: TestEvent) -> Bool {
+        override func equals(_ other: TestValue) -> Bool {
 
-            guard let otherDerived = other as? TestDerivedEvent else { return false }
+            guard let otherDerived = other as? TestDerivedValue else { return false }
 
             return super.equals(otherDerived) &&
                 extra == otherDerived.extra
         }
     }
 
-    class TestOtherEvent : Equatable {
+    class TestOtherValue : Equatable {
 
         init(payload: String) {
 
@@ -62,7 +62,7 @@ class SimpleChannelTests: XCTestCase {
 
         let payload: String
 
-        static func ==(lhs: SimpleChannelTests.TestOtherEvent, rhs: SimpleChannelTests.TestOtherEvent) -> Bool {
+        static func ==(lhs: SimpleChannelTests.TestOtherValue, rhs: SimpleChannelTests.TestOtherValue) -> Bool {
 
             lhs.payload == rhs.payload
         }
@@ -72,91 +72,91 @@ class SimpleChannelTests: XCTestCase {
 
         let channel = SimpleChannel()
 
-        var receivedEvent1: TestEvent?
-        var receivedEvent2: TestEvent?
+        var receivedValue1: TestValue?
+        var receivedValue2: TestValue?
 
-        let subscription1 = channel.subscribe { event in receivedEvent1 = event }
-        let subscription2 = channel.subscribe { event in receivedEvent2 = event }
+        let subscription1 = channel.subscribe { value in receivedValue1 = value }
+        let subscription2 = channel.subscribe { value in receivedValue2 = value }
 
-        let testEvent = TestEvent(payload: "SomePayload")
+        let testValue = TestValue(payload: "SomePayload")
 
-        channel.publish(testEvent)
+        channel.publish(testValue)
 
-        XCTAssertEqual(receivedEvent1, testEvent)
-        XCTAssertEqual(receivedEvent2, testEvent)
+        XCTAssertEqual(receivedValue1, testValue)
+        XCTAssertEqual(receivedValue2, testValue)
     }
 
     func testUnsubscribe() throws {
 
         let channel = SimpleChannel()
 
-        var receivedEvent1: TestEvent?
-        var receivedEvent2: TestEvent?
+        var receivedValue1: TestValue?
+        var receivedValue2: TestValue?
 
-        let subscription1 = channel.subscribe { event in receivedEvent1 = event }
-        var subscription2: Subscription? = channel.subscribe { event in receivedEvent2 = event }
+        let subscription1 = channel.subscribe { value in receivedValue1 = value }
+        var subscription2: Subscription? = channel.subscribe { value in receivedValue2 = value }
 
-        let testEvent = TestEvent(payload: "SomePayload")
+        let testValue = TestValue(payload: "SomePayload")
 
         subscription2 = nil
 
-        channel.publish(testEvent)
+        channel.publish(testValue)
 
-        XCTAssertEqual(receivedEvent1, testEvent)
-        XCTAssertNil(receivedEvent2)
+        XCTAssertEqual(receivedValue1, testValue)
+        XCTAssertNil(receivedValue2)
     }
 
     func testPublishUnrelated() throws {
 
         let channel = SimpleChannel()
 
-        var receivedEvent1: TestEvent?
-        var receivedEvent2: TestOtherEvent?
+        var receivedValue1: TestValue?
+        var receivedValue2: TestOtherValue?
 
-        let subscription1 = channel.subscribe { event in receivedEvent1 = event }
-        let subscription2 = channel.subscribe { event in receivedEvent2 = event }
+        let subscription1 = channel.subscribe { value in receivedValue1 = value }
+        let subscription2 = channel.subscribe { value in receivedValue2 = value }
 
-        let testEvent = TestEvent(payload: "SomePayload")
+        let testValue = TestValue(payload: "SomePayload")
 
-        channel.publish(testEvent)
+        channel.publish(testValue)
 
-        XCTAssertEqual(receivedEvent1, testEvent)
-        XCTAssertNil(receivedEvent2)
+        XCTAssertEqual(receivedValue1, testValue)
+        XCTAssertNil(receivedValue2)
     }
 
     func testPublishDerived() throws {
 
         let channel = SimpleChannel()
 
-        var receivedEvent1: TestEvent?
-        var receivedEvent2: TestDerivedEvent?
+        var receivedValue1: TestValue?
+        var receivedValue2: TestDerivedValue?
 
-        let subscription1 = channel.subscribe { event in receivedEvent1 = event }
-        let subscription2 = channel.subscribe { event in receivedEvent2 = event }
+        let subscription1 = channel.subscribe { value in receivedValue1 = value }
+        let subscription2 = channel.subscribe { value in receivedValue2 = value }
 
-        let testEvent = TestDerivedEvent(payload: "SomePayload", extra: "SomeExtra")
+        let testValue = TestDerivedValue(payload: "SomePayload", extra: "SomeExtra")
 
-        channel.publish(testEvent)
+        channel.publish(testValue)
 
-        XCTAssertEqual(receivedEvent1, testEvent)
-        XCTAssertEqual(receivedEvent2, testEvent)
+        XCTAssertEqual(receivedValue1, testValue)
+        XCTAssertEqual(receivedValue2, testValue)
     }
 
     func testPublishBase() throws {
 
         let channel = SimpleChannel()
 
-        var receivedEvent1: TestEvent?
-        var receivedEvent2: TestDerivedEvent?
+        var receivedValue1: TestValue?
+        var receivedValue2: TestDerivedValue?
 
-        let subscription1 = channel.subscribe { event in receivedEvent1 = event }
-        let subscription2 = channel.subscribe { event in receivedEvent2 = event }
+        let subscription1 = channel.subscribe { value in receivedValue1 = value }
+        let subscription2 = channel.subscribe { value in receivedValue2 = value }
 
-        let testEvent = TestEvent(payload: "SomePayload")
+        let testValue = TestValue(payload: "SomePayload")
 
-        channel.publish(testEvent)
+        channel.publish(testValue)
 
-        XCTAssertEqual(receivedEvent1, testEvent)
-        XCTAssertNil(receivedEvent2)
+        XCTAssertEqual(receivedValue1, testValue)
+        XCTAssertNil(receivedValue2)
     }
 }

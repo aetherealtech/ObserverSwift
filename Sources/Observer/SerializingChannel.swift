@@ -7,12 +7,12 @@ import Combine
 
 public protocol SerializingPubChannel {
 
-    func publish<Event: Encodable>(_ event: Event)
+    func publish<Value: Encodable>(_ value: Value)
 }
 
 public protocol SerializingSubChannel {
 
-    func subscribe<Event: Decodable>(_ handler: @escaping (Event) -> Void) -> Subscription
+    func subscribe<Value: Decodable>(_ handler: @escaping (Value) -> Void) -> Subscription
 }
 
 public typealias SerializingChannel = SerializingPubChannel & SerializingSubChannel

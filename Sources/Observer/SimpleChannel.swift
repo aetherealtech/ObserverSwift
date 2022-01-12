@@ -10,7 +10,7 @@ public class SimpleChannel : Channel {
 
     }
 
-    public func subscribe<Event>(_ handler: @escaping (Event) -> Void) -> Subscription {
+    public func subscribe<Value>(_ handler: @escaping (Value) -> Void) -> Subscription {
 
         let subscriber = TypeMatchingSubscriber(handler: handler)
 
@@ -25,12 +25,12 @@ public class SimpleChannel : Channel {
         )
     }
 
-    public func publish<Event>(_ event: Event) {
+    public func publish<Value>(_ value: Value) {
 
         let subscribers: [Subscriber] = subscribersQueue.sync { self.subscribers }
 
         subscribers
-            .forEach { subscriber in subscriber.receive(event) }
+            .forEach { subscriber in subscriber.receive(value) }
     }
 
     class SimpleSubscription : Subscription {

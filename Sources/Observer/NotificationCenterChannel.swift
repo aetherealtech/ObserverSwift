@@ -6,18 +6,18 @@ import Foundation
 
 extension NotificationCenter : Channel {
 
-    public func publish<Event>(_ event: Event) {
+    public func publish<Value>(_ value: Value) {
 
-        self.post(name: Self.notificationName, object: event)
+        self.post(name: Self.notificationName, object: value)
     }
 
-    public func subscribe<Event>(_ handler: @escaping (Event) -> Void) -> Subscription {
+    public func subscribe<Value>(_ handler: @escaping (Value) -> Void) -> Subscription {
 
         let subscriber = self.addObserver(forName: Self.notificationName, object: nil, queue: .main) { notification in
 
-            guard let event = notification.object as? Event else { return }
+            guard let value = notification.object as? Value else { return }
 
-            handler(event)
+            handler(value)
         }
         
         return NotificationCenterSubscription(

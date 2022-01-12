@@ -39,6 +39,14 @@ extension TypedPubChannel {
     }
 }
 
+extension TypedPubChannel where Event == Void {
+    
+    public func publish() {
+        
+        self.publish(())
+    }
+}
+
 public protocol TypedSubChannel {
 
     associatedtype Event
@@ -71,6 +79,14 @@ extension TypedSubChannel {
     public func erase() -> AnyTypedSubChannel<Event> {
         
         return AnyTypedSubChannel(channel: self)
+    }
+}
+
+extension TypedSubChannel where Event == Void {
+    
+    public func subscribe(_ handler: @escaping () -> Void) -> Subscription {
+        
+        self.subscribe { _ in handler() }
     }
 }
 

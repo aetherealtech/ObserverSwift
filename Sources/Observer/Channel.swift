@@ -4,12 +4,12 @@
 
 import Foundation
 
-public protocol PubChannel : SerializingPubChannel {
+public protocol PubChannel {
 
     func publish<Value>(_ value: Value)
 }
 
-public protocol SubChannel : SerializingSubChannel {
+public protocol SubChannel {
 
     func subscribe<Value>(_ handler: @escaping (Value) -> Void) -> Subscription
 }

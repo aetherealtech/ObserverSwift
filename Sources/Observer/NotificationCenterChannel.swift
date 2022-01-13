@@ -4,26 +4,62 @@
 
 import Foundation
 
-extension NotificationCenter : Channel {
+typealias NotificationData = (object: Any?, userInfo: [AnyHashable : Any]?)
 
-    public func publish<Value>(_ value: Value) {
+extension NotificationCenter {
 
-        self.post(name: Self.notificationName, object: value)
+    func channel(
+        for name: Notification.Name,
+        queue: OperationQueue = .main
+    ) -> AnyTypedChannel<NotificationData> {
+
+        NotificationCenterChannel(
+            notificationCenter: self,
+            name: name,
+            queue: queue
+        ).erase()
     }
 
-    public func subscribe<Value>(_ handler: @escaping (Value) -> Void) -> Subscription {
+    class NotificationCenterChannel: TypedChannel {
 
-        let subscriber = self.addObserver(forName: Self.notificationName, object: nil, queue: .main) { notification in
+        typealias Value = NotificationData
 
-            guard let value = notification.object as? Value else { return }
+        init(
+            notificationCenter: NotificationCenter,
+            name: Notification.Name,
+            queue: OperationQueue
+        ) {
 
-            handler(value)
+            self.notificationCenter = notificationCenter
+            self.name = name
+            self.queue = queue
         }
-        
-        return NotificationCenterSubscription(
-            notificationCenter: self,
-            subscriber: subscriber
-        )
+
+        public func publish(_ value: NotificationData) {
+
+            notificationCenter.post(name: name, object: value.object, userInfo: value.userInfo)
+        }
+
+        public func subscribe(_ handler: @escaping (NotificationData) -> Void) -> Subscription {
+
+            let subscriber = notificationCenter.addObserver(
+                forName: name,
+                object: nil,
+                queue: queue
+            ) { notification in
+
+                handler((notification.object, notification.userInfo))
+            }
+
+            return NotificationCenterSubscription(
+                notificationCenter: notificationCenter,
+                subscriber: subscriber
+            )
+        }
+
+        private let notificationCenter: NotificationCenter
+        private let name: Notification.Name
+        private let queue: OperationQueue
     }
 
     class NotificationCenterSubscription : Subscription {
@@ -47,6 +83,4 @@ extension NotificationCenter : Channel {
         private weak var notificationCenter: NotificationCenter?
         private let subscriber: NSObjectProtocol
     }
-
-    private static let notificationName = Notification.Name(rawValue: ObjectIdentifier(NotificationCenter.self).debugDescription)
 }

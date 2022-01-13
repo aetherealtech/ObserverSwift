@@ -137,7 +137,7 @@ extension PubChannel {
     
     public func asTypedChannel<Value>() -> AnyTypedPubChannel<Value> {
         
-        return AnyTypedPubChannel<Value> { value in
+        AnyTypedPubChannel<Value> { value in
             
             self.publish(value)
         }
@@ -148,9 +148,9 @@ extension SubChannel {
     
     public func asTypedChannel<Value>() -> AnyTypedSubChannel<Value> {
         
-        return AnyTypedSubChannel<Value> { handler in
+        AnyTypedSubChannel<Value> { handler in
             
-            return self.subscribe(handler)
+            self.subscribe(handler)
         }
     }
 }
@@ -159,7 +159,7 @@ extension SubChannel where Self: PubChannel {
     
     public func asTypedChannel<Value>() -> AnyTypedChannel<Value> {
         
-        return AnyTypedChannel<Value>(
+        AnyTypedChannel<Value>(
             pubChannel: self.asTypedChannel(),
             subChannel: self.asTypedChannel()
         )

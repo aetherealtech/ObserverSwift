@@ -22,6 +22,7 @@ class SerializingChannelTests: XCTestCase {
 
         let string: String
         let int: Int
+        let double: Double
         let child: Child
     }
 
@@ -29,7 +30,7 @@ class SerializingChannelTests: XCTestCase {
 
         let underlyingChannel: AnyTypedChannel<Data> = SimpleChannel().asTypedChannel()
 
-        let channel = SimpleJSONChannel(
+        let channel = SimpleJSONChannel<TestValue>(
             underlyingChannel: underlyingChannel
         )
 
@@ -42,6 +43,7 @@ class SerializingChannelTests: XCTestCase {
         let testValue = TestValue(
             string: "Test",
             int: 5,
+            double: 8.7,
             child: TestValue.Child(
                 string: "Moire",
                 array: ["1", "2", "3"]
@@ -52,5 +54,92 @@ class SerializingChannelTests: XCTestCase {
 
         XCTAssertEqual(receivedValue1, testValue)
         XCTAssertEqual(receivedValue2, testValue)
+    }
+
+    func testPublishUnderlying() throws {
+
+        let underlyingChannel: AnyTypedChannel<Data> = SimpleChannel().asTypedChannel()
+
+        let channel = SimpleJSONChannel<TestValue>(
+            underlyingChannel: underlyingChannel
+        )
+
+        var receivedValue1: TestValue?
+        var receivedValue2: TestValue?
+
+        let subscription1 = channel.subscribe { value in receivedValue1 = value }
+        let subscription2 = channel.subscribe { value in receivedValue2 = value }
+
+        let testValue = TestValue(
+            string: "Test",
+            int: 5,
+            double: 8.7,
+            child: TestValue.Child(
+                string: "Moire",
+                array: ["1", "2", "3"]
+            )
+        )
+
+        let testEncoded = try! JSONEncoder().encode(testValue)
+
+        underlyingChannel.publish(testEncoded)
+
+        XCTAssertEqual(receivedValue1, testValue)
+        XCTAssertEqual(receivedValue2, testValue)
+    }
+
+    func testPublishFail() throws {
+
+        let underlyingChannel: AnyTypedChannel<Data> = SimpleChannel().asTypedChannel()
+
+        let channel = SimpleJSONChannel<TestValue>(
+            underlyingChannel: underlyingChannel
+        )
+
+        let testInvalidValue = TestValue(
+            string: "Test",
+            int: 5,
+            double: .infinity,
+            child: TestValue.Child(
+                string: "Moire",
+                array: ["1", "2", "3"]
+            )
+        )
+
+        XCTAssertThrowsError(try channel.tryPublish(testInvalidValue)) { error in
+
+            XCTAssertTrue(error is EncodingError)
+        }
+    }
+
+    func testSubscribeFail() throws {
+
+        let underlyingChannel: AnyTypedChannel<Data> = SimpleChannel().asTypedChannel()
+
+        let channel = SimpleJSONChannel<TestValue>(
+            underlyingChannel: underlyingChannel
+        )
+
+        let testInvalidEncoded =
+            """
+            {
+                "string": "Test",
+                "int": "thisIsAString",
+                "double" 8.5
+            }
+            """
+
+        var receivedValue: TestValue? = nil
+        var receivedError: Error? = nil
+
+        let subscription = channel.subscribe(
+            onValue: { value in receivedValue = value },
+            onError: { error in receivedError = error }
+        )
+
+        underlyingChannel.publish(testInvalidEncoded.data(using: .utf8)!)
+
+        XCTAssertNil(receivedValue)
+        XCTAssertTrue(receivedError is DecodingError)
     }
 }

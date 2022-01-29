@@ -84,6 +84,9 @@ class SimpleChannelTests: XCTestCase {
 
         XCTAssertEqual(receivedValue1, testValue)
         XCTAssertEqual(receivedValue2, testValue)
+
+        withExtendedLifetime(subscription1) {  }
+        withExtendedLifetime(subscription2) {  }
     }
 
     func testUnsubscribe() throws {
@@ -98,6 +101,8 @@ class SimpleChannelTests: XCTestCase {
 
         let testValue = TestValue(payload: "SomePayload")
 
+        withExtendedLifetime(subscription1) {  }
+        withExtendedLifetime(subscription2) {  }
         subscription2 = nil
 
         channel.publish(testValue)
@@ -122,6 +127,9 @@ class SimpleChannelTests: XCTestCase {
 
         XCTAssertEqual(receivedValue1, testValue)
         XCTAssertNil(receivedValue2)
+
+        withExtendedLifetime(subscription1) {  }
+        withExtendedLifetime(subscription2) {  }
     }
 
     func testPublishDerived() throws {
@@ -140,6 +148,9 @@ class SimpleChannelTests: XCTestCase {
 
         XCTAssertEqual(receivedValue1, testValue)
         XCTAssertEqual(receivedValue2, testValue)
+
+        withExtendedLifetime(subscription1) {  }
+        withExtendedLifetime(subscription2) {  }
     }
 
     func testPublishBase() throws {
@@ -158,5 +169,8 @@ class SimpleChannelTests: XCTestCase {
 
         XCTAssertEqual(receivedValue1, testValue)
         XCTAssertNil(receivedValue2)
+
+        withExtendedLifetime(subscription1) {  }
+        withExtendedLifetime(subscription2) {  }
     }
 }

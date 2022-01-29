@@ -54,6 +54,9 @@ class SerializingChannelTests: XCTestCase {
 
         XCTAssertEqual(receivedValue1, testValue)
         XCTAssertEqual(receivedValue2, testValue)
+
+        withExtendedLifetime(subscription1) {  }
+        withExtendedLifetime(subscription2) {  }
     }
 
     func testPublishUnderlying() throws {
@@ -86,6 +89,9 @@ class SerializingChannelTests: XCTestCase {
 
         XCTAssertEqual(receivedValue1, testValue)
         XCTAssertEqual(receivedValue2, testValue)
+
+        withExtendedLifetime(subscription1) {  }
+        withExtendedLifetime(subscription2) {  }
     }
 
     func testPublishFail() throws {
@@ -141,5 +147,7 @@ class SerializingChannelTests: XCTestCase {
 
         XCTAssertNil(receivedValue)
         XCTAssertTrue(receivedError is DecodingError)
+
+        withExtendedLifetime(subscription) {  }
     }
 }

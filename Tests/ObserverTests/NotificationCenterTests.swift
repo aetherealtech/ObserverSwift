@@ -48,6 +48,8 @@ class NotificationCenterTests: XCTestCase {
 
         XCTAssertEqual(receivedData!.object as! String, testData.object as! String)
         XCTAssertEqual(receivedData!.userInfo as! [String: Int], testData.userInfo as! [String: Int])
+
+        withExtendedLifetime(subscription) {  }
     }
 
     func testUnsubscribe() throws {
@@ -63,6 +65,7 @@ class NotificationCenterTests: XCTestCase {
 
         let testData: NotificationData = ("someValue", ["someKey": 58])
 
+        withExtendedLifetime(subscription) {  }
         subscription = nil
 
         NotificationCenter.default.post(name: testNotificationName, object: testData.object, userInfo: testData.userInfo)

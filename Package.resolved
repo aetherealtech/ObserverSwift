@@ -1,0 +1,14 @@
+{
+  "pins" : [
+    {
+      "identity" : "swiftcoreextensions",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/aetherealtech/SwiftCoreExtensions.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "7ea3340f736446c625fec5090f6180e4987f8ba8"
+      }
+    }
+  ],
+  "version" : 2
+}

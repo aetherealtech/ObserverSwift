@@ -11,7 +11,7 @@ extension NotificationCenter {
     func channel(
         for name: Notification.Name,
         queue: OperationQueue = .main
-    ) -> AnyTypedChannel<NotificationData> {
+    ) -> AnyChannel<NotificationData> {
 
         NotificationCenterChannel(
             notificationCenter: self,
@@ -20,7 +20,7 @@ extension NotificationCenter {
         ).erase()
     }
 
-    class NotificationCenterChannel: TypedChannel {
+    class NotificationCenterChannel: Channel {
 
         typealias Value = NotificationData
 

@@ -3,21 +3,19 @@
 //
 
 import Foundation
+import CoreExtensions
 
-public class SimpleChannel : Channel {
+public class SimpleChannel<Value> : Channel {
 
     public init() {
 
     }
 
-    public func subscribe<Value>(_ handler: @escaping (Value) -> Void) -> Subscription {
+    public func subscribe(_ handler: @escaping (Value) -> Void) -> Subscription {
 
-        let subscriber = TypeMatchingSubscriber(handler: handler)
+        let subscriber = Subscriber(handler: handler)
 
-        subscribersQueue.async(flags: [DispatchWorkItemFlags.barrier]) {
-
-            self.subscribers.append(subscriber)
-        }
+        subscribers.exclusiveLock({ subscribers in _ = subscribers.insert(subscriber) })
 
         return SimpleSubscription(
             channel: self,
@@ -25,12 +23,37 @@ public class SimpleChannel : Channel {
         )
     }
 
-    public func publish<Value>(_ value: Value) {
+    public func publish(_ value: Value) {
 
-        let subscribers: [Subscriber] = subscribersQueue.sync { self.subscribers }
+        let subscribers = subscribers.value
 
         subscribers
             .forEach { subscriber in subscriber.receive(value) }
+    }
+
+    class Subscriber : Equatable, Hashable {
+
+        init(handler: @escaping (Value) -> Void) {
+
+            self.handler = handler
+        }
+
+        func receive(_ value: Value) {
+
+            handler(value)
+        }
+
+        static func ==(lhs: Subscriber, rhs: Subscriber) -> Bool {
+
+            lhs === rhs
+        }
+
+        private let handler: (Value) -> Void
+
+        func hash(into hasher: inout Hasher) {
+
+            ObjectIdentifier(self).hash(into: &hasher)
+        }
     }
 
     class SimpleSubscription : Subscription {
@@ -48,20 +71,12 @@ public class SimpleChannel : Channel {
 
             guard let channel = self.channel else { return }
 
-            channel.subscribersQueue.sync {
-
-                channel.subscribers.removeAll(where: { subscriber in subscriber === self.subscriber})
-            }
+            channel.subscribers.exclusiveLock({ subscribers in _ = subscribers.remove(subscriber) })
         }
 
         private weak var channel: SimpleChannel?
         private let subscriber: Subscriber
     }
 
-    private var subscribers: [Subscriber] = []
-
-    private let subscribersQueue = DispatchQueue(
-        label: "com.devcraft.observer.simplechannel.subscriptionqueue",
-        attributes: [.concurrent]
-    )
+    private var subscribers = Atomic<Set<Subscriber>>([])
 }

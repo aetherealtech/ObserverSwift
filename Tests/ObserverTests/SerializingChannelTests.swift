@@ -28,9 +28,9 @@ class SerializingChannelTests: XCTestCase {
 
     func testPublish() throws {
 
-        let underlyingChannel: AnyTypedChannel<Data> = SimpleChannel().asTypedChannel()
+        let underlyingChannel = SimpleChannel<Data>()
 
-        let channel = SimpleJSONChannel<TestValue>(
+        let channel = JSONChannel<TestValue>(
             underlyingChannel: underlyingChannel
         )
 
@@ -61,9 +61,9 @@ class SerializingChannelTests: XCTestCase {
 
     func testPublishUnderlying() throws {
 
-        let underlyingChannel: AnyTypedChannel<Data> = SimpleChannel().asTypedChannel()
+        let underlyingChannel = SimpleChannel<Data>()
 
-        let channel = SimpleJSONChannel<TestValue>(
+        let channel = JSONChannel<TestValue>(
             underlyingChannel: underlyingChannel
         )
 
@@ -94,12 +94,25 @@ class SerializingChannelTests: XCTestCase {
         withExtendedLifetime(subscription2) {  }
     }
 
+    class MockErrorHandler
+    {
+        var invocations: [Error] = []
+
+        func invoke(error: Error) {
+
+            invocations.append(error)
+        }
+    }
+
     func testPublishFail() throws {
 
-        let underlyingChannel: AnyTypedChannel<Data> = SimpleChannel().asTypedChannel()
+        let underlyingChannel = SimpleChannel<Data>()
 
-        let channel = SimpleJSONChannel<TestValue>(
-            underlyingChannel: underlyingChannel
+        let errorHandler = MockErrorHandler()
+
+        let channel = JSONChannel<TestValue>(
+            underlyingChannel: underlyingChannel,
+            encodingErrorHandler: errorHandler.invoke
         )
 
         let testInvalidValue = TestValue(
@@ -112,18 +125,27 @@ class SerializingChannelTests: XCTestCase {
             )
         )
 
-        XCTAssertThrowsError(try channel.tryPublish(testInvalidValue)) { error in
+        channel.publish(testInvalidValue)
 
-            XCTAssertTrue(error is EncodingError)
+        guard errorHandler.invocations.count == 1 else {
+            XCTFail("Error handler not invoked")
+            return
         }
+
+        let invocation = errorHandler.invocations[0]
+
+        XCTAssertTrue(invocation is EncodingError)
     }
 
     func testSubscribeFail() throws {
 
-        let underlyingChannel: AnyTypedChannel<Data> = SimpleChannel().asTypedChannel()
+        let underlyingChannel = SimpleChannel<Data>()
 
-        let channel = SimpleJSONChannel<TestValue>(
-            underlyingChannel: underlyingChannel
+        let errorHandler = MockErrorHandler()
+
+        let channel = JSONChannel<TestValue>(
+            underlyingChannel: underlyingChannel,
+            decodingErrorHandler: errorHandler.invoke
         )
 
         let testInvalidEncoded =
@@ -136,17 +158,24 @@ class SerializingChannelTests: XCTestCase {
             """
 
         var receivedValue: TestValue? = nil
-        var receivedError: Error? = nil
 
-        let subscription = channel.subscribe(
-            onValue: { value in receivedValue = value },
-            onError: { error in receivedError = error }
-        )
+        let subscription = channel.subscribe { value in
+
+            receivedValue = value
+        }
 
         underlyingChannel.publish(testInvalidEncoded.data(using: .utf8)!)
 
         XCTAssertNil(receivedValue)
-        XCTAssertTrue(receivedError is DecodingError)
+
+        guard errorHandler.invocations.count == 1 else {
+            XCTFail("Error handler not invoked")
+            return
+        }
+
+        let invocation = errorHandler.invocations[0]
+
+        XCTAssertTrue(invocation is DecodingError)
 
         withExtendedLifetime(subscription) {  }
     }

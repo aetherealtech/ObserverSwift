@@ -30,47 +30,9 @@ class SimpleChannelTests: XCTestCase {
         }
     }
 
-    class TestDerivedValue : TestValue {
-
-        init(
-            payload: String,
-            extra: String
-        ) {
-
-            self.extra = extra
-
-            super.init(payload: payload)
-        }
-
-        let extra: String
-
-        override func equals(_ other: TestValue) -> Bool {
-
-            guard let otherDerived = other as? TestDerivedValue else { return false }
-
-            return super.equals(otherDerived) &&
-                extra == otherDerived.extra
-        }
-    }
-
-    class TestOtherValue : Equatable {
-
-        init(payload: String) {
-
-            self.payload = payload
-        }
-
-        let payload: String
-
-        static func ==(lhs: SimpleChannelTests.TestOtherValue, rhs: SimpleChannelTests.TestOtherValue) -> Bool {
-
-            lhs.payload == rhs.payload
-        }
-    }
-
     func testPublish() throws {
 
-        let channel = SimpleChannel()
+        let channel = SimpleChannel<TestValue>()
 
         var receivedValue1: TestValue?
         var receivedValue2: TestValue?
@@ -91,7 +53,7 @@ class SimpleChannelTests: XCTestCase {
 
     func testUnsubscribe() throws {
 
-        let channel = SimpleChannel()
+        let channel = SimpleChannel<TestValue>()
 
         var receivedValue1: TestValue?
         var receivedValue2: TestValue?
@@ -109,68 +71,5 @@ class SimpleChannelTests: XCTestCase {
 
         XCTAssertEqual(receivedValue1, testValue)
         XCTAssertNil(receivedValue2)
-    }
-
-    func testPublishUnrelated() throws {
-
-        let channel = SimpleChannel()
-
-        var receivedValue1: TestValue?
-        var receivedValue2: TestOtherValue?
-
-        let subscription1 = channel.subscribe { value in receivedValue1 = value }
-        let subscription2 = channel.subscribe { value in receivedValue2 = value }
-
-        let testValue = TestValue(payload: "SomePayload")
-
-        channel.publish(testValue)
-
-        XCTAssertEqual(receivedValue1, testValue)
-        XCTAssertNil(receivedValue2)
-
-        withExtendedLifetime(subscription1) {  }
-        withExtendedLifetime(subscription2) {  }
-    }
-
-    func testPublishDerived() throws {
-
-        let channel = SimpleChannel()
-
-        var receivedValue1: TestValue?
-        var receivedValue2: TestDerivedValue?
-
-        let subscription1 = channel.subscribe { value in receivedValue1 = value }
-        let subscription2 = channel.subscribe { value in receivedValue2 = value }
-
-        let testValue = TestDerivedValue(payload: "SomePayload", extra: "SomeExtra")
-
-        channel.publish(testValue)
-
-        XCTAssertEqual(receivedValue1, testValue)
-        XCTAssertEqual(receivedValue2, testValue)
-
-        withExtendedLifetime(subscription1) {  }
-        withExtendedLifetime(subscription2) {  }
-    }
-
-    func testPublishBase() throws {
-
-        let channel = SimpleChannel()
-
-        var receivedValue1: TestValue?
-        var receivedValue2: TestDerivedValue?
-
-        let subscription1 = channel.subscribe { value in receivedValue1 = value }
-        let subscription2 = channel.subscribe { value in receivedValue2 = value }
-
-        let testValue = TestValue(payload: "SomePayload")
-
-        channel.publish(testValue)
-
-        XCTAssertEqual(receivedValue1, testValue)
-        XCTAssertNil(receivedValue2)
-
-        withExtendedLifetime(subscription1) {  }
-        withExtendedLifetime(subscription2) {  }
     }
 }

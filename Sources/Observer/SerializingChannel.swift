@@ -1,137 +1,171 @@
 //
-// Created by Daniel Coleman on 11/20/21.
+//  Created by Daniel Coleman on 1/6/22.
 //
 
 import Foundation
 import Combine
 
-public protocol SerializingPubChannel : TypedPubChannel where Value: Encodable {
+@available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
+class SerializingPubChannel<Value: Encodable, Encoder: TopLevelEncoder> : PubChannel {
 
-    func tryPublish(_ value: Value) throws
-}
+    init<UnderlyingChannel: PubChannel>(
+        underlyingChannel: UnderlyingChannel,
+        encoder: Encoder,
+        encodingErrorHandler: ((Error) -> Void)? = nil
+    ) where UnderlyingChannel.Value == Encoder.Output {
 
-extension SerializingPubChannel {
-
-    public func publish(_ value: Value) {
-
-        try? tryPublish(value)
-    }
-}
-
-public class AnySerializingPubChannel<Value: Encodable> : AnyTypedPubChannel<Value>, SerializingPubChannel {
-
-    init<Channel: SerializingPubChannel>(erasing channel: Channel) where Channel.Value == Value {
-
-        self.tryPublishImp = channel.tryPublish
-
-        super.init(publishImp: channel.publish)
+        self.underlyingChannel = underlyingChannel.erase()
+        self.encoder = encoder
+        self.encodingErrorHandler = encodingErrorHandler
     }
 
-    public func tryPublish(_ value: Value) throws {
+    func publish(_ value: Value) {
 
-        try tryPublishImp(value)
+        do {
+
+            let encoded = try encoder.encode(value)
+
+            underlyingChannel.publish(encoded)
+
+        } catch(let error) {
+
+            encodingErrorHandler?(error)
+        }
     }
 
-    private let tryPublishImp: (_ value: Value) throws -> Void
+    private let underlyingChannel: AnyPubChannel<Encoder.Output>
+    private let encoder: Encoder
+    private let encodingErrorHandler: ((Error) -> Void)?
 }
 
-extension SerializingPubChannel {
+@available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
+class SerializingSubChannel<Value: Decodable, Decoder: TopLevelDecoder> : SubChannel {
 
-    func erase() -> AnySerializingPubChannel<Value> {
+    init<UnderlyingChannel: Channel>(
+        underlyingChannel: UnderlyingChannel,
+        decoder: Decoder,
+        decodingErrorHandler: ((Error) -> Void)? = nil
+    ) where UnderlyingChannel.Value == Decoder.Input {
 
-        AnySerializingPubChannel(erasing: self)
+        self.underlyingChannel = underlyingChannel.erase()
+        self.decoder = decoder
+        self.decodingErrorHandler = decodingErrorHandler
+
+        let outputChannel = self.outputChannel
+
+        underlyingSubscription = underlyingChannel.subscribe { encoded in
+
+            do {
+
+                let value = try decoder.decode(Value.self, from: encoded)
+                outputChannel.publish(value)
+            }
+            catch(let error) {
+
+                decodingErrorHandler?(error)
+            }
+        }
     }
-}
-
-protocol SerializingSubChannel : TypedSubChannel where Value: Decodable {
-
-    func subscribe(
-        onValue: @escaping (Value) -> Void,
-        onError: @escaping (Error) -> Void
-    ) -> Subscription
-}
-
-extension SerializingSubChannel {
 
     func subscribe(_ handler: @escaping (Value) -> Void) -> Subscription {
 
-        subscribe(
-            onValue: handler,
-            onError: { _ in }
+        outputChannel.subscribe(handler)
+    }
+
+    private let underlyingChannel: AnySubChannel<Decoder.Input>
+    private let decoder: Decoder
+    private let decodingErrorHandler: ((Error) -> Void)?
+
+    private let outputChannel = SimpleChannel<Value>()
+
+    private let underlyingSubscription: Subscription
+}
+
+@available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
+class SerializingChannel<Value: Codable, Encoder: TopLevelEncoder, Decoder: TopLevelDecoder> : Channel where Decoder.Input == Encoder.Output {
+
+    init<UnderlyingChannel: Channel>(
+        underlyingChannel: UnderlyingChannel,
+        decoder: Decoder,
+        encoder: Encoder,
+        decodingErrorHandler: ((Error) -> Void)? = nil,
+        encodingErrorHandler: ((Error) -> Void)? = nil
+    ) where UnderlyingChannel.Value == Decoder.Input {
+
+        pubChannel = SerializingPubChannel(
+            underlyingChannel: underlyingChannel,
+            encoder: encoder,
+            encodingErrorHandler: encodingErrorHandler
         )
-    }
-}
 
-public class AnySerializingSubChannel<Value: Decodable> : AnyTypedSubChannel<Value>, SerializingSubChannel {
-
-    init<Channel: SerializingSubChannel>(erasing channel: Channel) where Channel.Value == Value {
-
-        self.subscribeImp = channel.subscribe
-
-        super.init(subscribeImp: channel.subscribe)
-    }
-
-    public func subscribe(
-        onValue: @escaping (Value) -> Void,
-        onError: @escaping (Error) -> Void
-    ) -> Subscription {
-
-        subscribeImp(
-            onValue,
-            onError
-        )
-    }
-
-    private let subscribeImp: (
-        @escaping (Value) -> Void,
-        @escaping (Error) -> Void
-    ) -> Subscription
-}
-
-extension SerializingSubChannel {
-
-    func erase() -> AnySerializingSubChannel<Value> {
-
-        AnySerializingSubChannel(erasing: self)
-    }
-}
-
-typealias SerializingChannel = SerializingPubChannel & SerializingSubChannel
-
-extension SerializingSubChannel where Self: SerializingPubChannel {
-
-
-}
-
-public class AnySerializingChannel<Value: Codable> : AnyTypedChannel<Value>, SerializingChannel {
-
-    init<Channel: SerializingChannel>(erasing channel: Channel) where Channel.Value == Value {
-
-        self.pubChannel = channel.erase()
-        self.subChannel = channel.erase()
-
-        super.init(
-            pubChannel: pubChannel,
-            subChannel: subChannel
+        subChannel = SerializingSubChannel(
+            underlyingChannel: underlyingChannel,
+            decoder: decoder,
+            decodingErrorHandler: decodingErrorHandler
         )
     }
 
-    public func tryPublish(_ value: Value) throws {
+    convenience init<UnderlyingChannel: Channel>(
+        underlyingChannel: UnderlyingChannel,
+        decoder: Decoder,
+        encoder: Encoder,
+        errorHandler: ((Error) -> Void)? = nil
+    ) where UnderlyingChannel.Value == Decoder.Input {
 
-        try pubChannel.tryPublish(value)
-    }
-
-    public func subscribe(
-        onValue: @escaping (Value) -> Void,
-        onError: @escaping (Error) -> Void
-    ) -> Subscription {
-
-        subChannel.subscribe(
-            onValue: onValue,
-            onError: onError
+        self.init(
+            underlyingChannel: underlyingChannel,
+            decoder: decoder,
+            encoder: encoder,
+            decodingErrorHandler: errorHandler,
+            encodingErrorHandler: errorHandler
         )
     }
 
-    private let pubChannel: AnySerializingPubChannel<Value>
-    private let subChannel: AnySerializingSubChannel<Value>
+    func publish(_ value: Value) {
+
+        pubChannel.publish(value)
+    }
+
+    func subscribe(_ handler: @escaping (Value) -> ()) -> Subscription {
+
+        subChannel.subscribe(handler)
+    }
+
+    let pubChannel: SerializingPubChannel<Value, Encoder>
+    let subChannel: SerializingSubChannel<Value, Decoder>
+}
+
+@available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
+typealias JSONChannel<Value: Codable> = SerializingChannel<Value, JSONEncoder, JSONDecoder>
+
+@available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
+extension SerializingChannel where Decoder == JSONDecoder, Encoder == JSONEncoder {
+
+    convenience init<UnderlyingChannel: Channel>(
+        underlyingChannel: UnderlyingChannel,
+        decodingErrorHandler: ((Error) -> Void)? = nil,
+        encodingErrorHandler: ((Error) -> Void)? = nil
+    ) where UnderlyingChannel.Value == Decoder.Input {
+
+        self.init(
+            underlyingChannel: underlyingChannel,
+            decoder: JSONDecoder(),
+            encoder: JSONEncoder(),
+            decodingErrorHandler: decodingErrorHandler,
+            encodingErrorHandler: encodingErrorHandler
+        )
+    }
+
+    convenience init<UnderlyingChannel: Channel>(
+        underlyingChannel: UnderlyingChannel,
+        errorHandler: ((Error) -> Void)? = nil
+    ) where UnderlyingChannel.Value == Decoder.Input {
+
+        self.init(
+            underlyingChannel: underlyingChannel,
+            decoder: JSONDecoder(),
+            encoder: JSONEncoder(),
+            errorHandler: errorHandler
+        )
+    }
 }

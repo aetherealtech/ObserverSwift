@@ -5,17 +5,16 @@
 //  Created by Daniel Coleman on 11/18/21.
 //
 
+import Assertions
+import Synchronization
 import XCTest
 
 @testable import Observer
 
 @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
-class SerializingChannelTests: XCTestCase {
-
-    struct TestValue : Codable, Equatable {
-
-        struct Child : Codable, Equatable {
-
+final class SerializingChannelTests: XCTestCase {
+    struct TestValue: Codable, Equatable {
+        struct Child: Codable, Equatable {
             let string: String
             let array: [String]
         }
@@ -27,18 +26,19 @@ class SerializingChannelTests: XCTestCase {
     }
 
     func testPublish() throws {
-
         let underlyingChannel = SimpleChannel<Data>()
 
-        let channel = JSONChannel<TestValue>(
-            underlyingChannel: underlyingChannel
-        )
+        let channel = underlyingChannel
+            .jsonCoded(to: TestValue.self)
 
+        @Synchronized
         var receivedValue1: TestValue?
+        
+        @Synchronized
         var receivedValue2: TestValue?
 
-        let subscription1 = channel.subscribe { value in receivedValue1 = value }
-        let subscription2 = channel.subscribe { value in receivedValue2 = value }
+        _ = channel.subscribe { [_receivedValue1] value in _receivedValue1.wrappedValue = value }
+        _ = channel.subscribe { [_receivedValue2] value in _receivedValue2.wrappedValue = value }
 
         let testValue = TestValue(
             string: "Test",
@@ -52,26 +52,24 @@ class SerializingChannelTests: XCTestCase {
 
         channel.publish(testValue)
 
-        XCTAssertEqual(receivedValue1, testValue)
-        XCTAssertEqual(receivedValue2, testValue)
-
-        withExtendedLifetime(subscription1) {  }
-        withExtendedLifetime(subscription2) {  }
+        try assertEqual(receivedValue1, testValue)
+        try assertEqual(receivedValue2, testValue)
     }
 
     func testPublishUnderlying() throws {
-
         let underlyingChannel = SimpleChannel<Data>()
 
-        let channel = JSONChannel<TestValue>(
-            underlyingChannel: underlyingChannel
-        )
+        let channel = underlyingChannel
+            .jsonCoded(to: TestValue.self)
 
+        @Synchronized
         var receivedValue1: TestValue?
+        
+        @Synchronized
         var receivedValue2: TestValue?
 
-        let subscription1 = channel.subscribe { value in receivedValue1 = value }
-        let subscription2 = channel.subscribe { value in receivedValue2 = value }
+        _ = channel.subscribe { [_receivedValue1] value in _receivedValue1.wrappedValue = value }
+        _ = channel.subscribe { [_receivedValue2] value in _receivedValue2.wrappedValue = value }
 
         let testValue = TestValue(
             string: "Test",
@@ -83,37 +81,37 @@ class SerializingChannelTests: XCTestCase {
             )
         )
 
-        let testEncoded = try! JSONEncoder().encode(testValue)
+        let testEncoded = try! channel.encoder.encode(testValue)
 
         underlyingChannel.publish(testEncoded)
 
-        XCTAssertEqual(receivedValue1, testValue)
-        XCTAssertEqual(receivedValue2, testValue)
-
-        withExtendedLifetime(subscription1) {  }
-        withExtendedLifetime(subscription2) {  }
+        try assertEqual(receivedValue1, testValue)
+        try assertEqual(receivedValue2, testValue)
     }
 
-    class MockErrorHandler
-    {
-        var invocations: [Error] = []
-
-        func invoke(error: Error) {
-
+    final class MockErrorHandler: Sendable {
+        private let _invocations = Synchronized<[Error]>(wrappedValue: [])
+        
+        private(set) var invocations: [Error] {
+            _read { yield _invocations.wrappedValue }
+            _modify { yield &_invocations.wrappedValue }
+        }
+        
+        func callAsFunction(error: Error) {
             invocations.append(error)
         }
     }
 
     func testPublishFail() throws {
-
         let underlyingChannel = SimpleChannel<Data>()
 
         let errorHandler = MockErrorHandler()
-
-        let channel = JSONChannel<TestValue>(
-            underlyingChannel: underlyingChannel,
-            encodingErrorHandler: errorHandler.invoke
-        )
+        
+        let channel = underlyingChannel
+            .jsonCoded(
+                to: TestValue.self,
+                errorHandler: { error in errorHandler(error: error) }
+            )
 
         let testInvalidValue = TestValue(
             string: "Test",
@@ -127,26 +125,23 @@ class SerializingChannelTests: XCTestCase {
 
         channel.publish(testInvalidValue)
 
-        guard errorHandler.invocations.count == 1 else {
-            XCTFail("Error handler not invoked")
-            return
-        }
+        try assertEqual(errorHandler.invocations.count, 1, "Error handler not invoked")
 
         let invocation = errorHandler.invocations[0]
 
-        XCTAssertTrue(invocation is EncodingError)
+        try assertTrue(invocation is EncodingError)
     }
 
     func testSubscribeFail() throws {
-
         let underlyingChannel = SimpleChannel<Data>()
 
         let errorHandler = MockErrorHandler()
 
-        let channel = JSONChannel<TestValue>(
-            underlyingChannel: underlyingChannel,
-            decodingErrorHandler: errorHandler.invoke
-        )
+        let channel = underlyingChannel
+            .jsonCoded(
+                to: TestValue.self,
+                errorHandler: { error in errorHandler(error: error) }
+            )
 
         let testInvalidEncoded =
             """
@@ -157,26 +152,21 @@ class SerializingChannelTests: XCTestCase {
             }
             """
 
+        @Synchronized
         var receivedValue: TestValue? = nil
 
-        let subscription = channel.subscribe { value in
-
-            receivedValue = value
+        _ = channel.subscribe { [_receivedValue] value in
+            _receivedValue.wrappedValue = value
         }
 
         underlyingChannel.publish(testInvalidEncoded.data(using: .utf8)!)
 
-        XCTAssertNil(receivedValue)
+        try assertNil(receivedValue)
 
-        guard errorHandler.invocations.count == 1 else {
-            XCTFail("Error handler not invoked")
-            return
-        }
+        try assertEqual(errorHandler.invocations.count, 1, "Error handler not invoked")
 
         let invocation = errorHandler.invocations[0]
 
-        XCTAssertTrue(invocation is DecodingError)
-
-        withExtendedLifetime(subscription) {  }
+        try assertTrue(invocation is DecodingError)
     }
 }

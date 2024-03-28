@@ -3,84 +3,80 @@
 //
 
 import Foundation
+import Synchronization
 
-typealias NotificationData = (object: Any?, userInfo: [AnyHashable : Any]?)
-
-extension NotificationCenter {
-
-    func channel(
-        for name: Notification.Name,
-        queue: OperationQueue = .main
-    ) -> AnyChannel<NotificationData> {
-
-        NotificationCenterChannel(
-            notificationCenter: self,
-            name: name,
-            queue: queue
-        ).erase()
-    }
-
-    class NotificationCenterChannel: Channel {
-
-        typealias Value = NotificationData
-
-        init(
-            notificationCenter: NotificationCenter,
-            name: Notification.Name,
-            queue: OperationQueue
-        ) {
-
-            self.notificationCenter = notificationCenter
-            self.name = name
-            self.queue = queue
-        }
-
-        public func publish(_ value: NotificationData) {
-
-            notificationCenter.post(name: name, object: value.object, userInfo: value.userInfo)
-        }
-
-        public func subscribe(_ handler: @escaping (NotificationData) -> Void) -> Subscription {
-
-            let subscriber = notificationCenter.addObserver(
-                forName: name,
-                object: nil,
-                queue: queue
-            ) { notification in
-
-                handler((notification.object, notification.userInfo))
-            }
-
-            return NotificationCenterSubscription(
-                notificationCenter: notificationCenter,
-                subscriber: subscriber
-            )
-        }
-
-        private let notificationCenter: NotificationCenter
-        private let name: Notification.Name
-        private let queue: OperationQueue
-    }
-
-    class NotificationCenterSubscription : Subscription {
-
+public struct NotificationCenterChannel: Channel {
+    public struct Subscription: Observer.Subscription {
         init(
             notificationCenter: NotificationCenter,
             subscriber: NSObjectProtocol
         ) {
 
             self.notificationCenter = notificationCenter
-            self.subscriber = subscriber
+            self._subscriber = .init(wrappedValue: subscriber)
         }
 
-        deinit {
-
-            guard let notificationCenter = self.notificationCenter else { return }
-
-            notificationCenter.removeObserver(subscriber)
+        public func cancel() {
+            notificationCenter?.removeObserver(_subscriber.wrappedValue)
         }
 
         private weak var notificationCenter: NotificationCenter?
-        private let subscriber: NSObjectProtocol
+        private let _subscriber: Synchronized<NSObjectProtocol>
+    }
+    
+    public typealias Value = (object: Any?, userInfo: [AnyHashable : Any]?)
+
+    init(
+        notificationCenter: NotificationCenter,
+        name: Notification.Name,
+        queue: OperationQueue
+    ) {
+
+        self.notificationCenter = notificationCenter
+        self.name = name
+        self.queue = queue
+    }
+
+    public func publish(_ value: Value) {
+        notificationCenter.post(
+            name: name,
+            object: value.object,
+            userInfo: value.userInfo
+        )
+    }
+
+    public func subscribe(_ handler: @escaping @Sendable (Value) -> Void) -> Subscription {
+        let subscriber = notificationCenter.addObserver(
+            forName: name,
+            object: nil,
+            queue: queue
+        ) { notification in
+            handler((
+                notification.object,
+                notification.userInfo
+            ))
+        }
+
+        return .init(
+            notificationCenter: notificationCenter,
+            subscriber: subscriber
+        )
+    }
+
+    public let notificationCenter: NotificationCenter
+    public let name: Notification.Name
+    public let queue: OperationQueue
+}
+
+public extension NotificationCenter {
+    func channel(
+        for name: Notification.Name,
+        queue: OperationQueue = .main
+    ) -> NotificationCenterChannel {
+        .init(
+            notificationCenter: self,
+            name: name,
+            queue: queue
+        )
     }
 }

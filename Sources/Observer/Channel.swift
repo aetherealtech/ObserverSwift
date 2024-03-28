@@ -4,131 +4,88 @@
 
 import Foundation
 
-public protocol PubChannel {
-
+public protocol PubChannel<Value>: Sendable {
     associatedtype Value
 
     func publish(_ value: Value)
 }
 
-public class AnyPubChannel<Value> : PubChannel {
-
-    convenience init<Channel: PubChannel>(channel: Channel) where Channel.Value == Value {
-
-        self.init(publishImp: channel.publish)
-    }
-
-    init(publishImp: @escaping (Value) -> Void) {
-        
-        self.publishImp = publishImp
+public struct AnyPubChannel<Value>: PubChannel {
+    init<Channel: PubChannel<Value>>(channel: Channel) {
+        self.value = channel
     }
     
     public func publish(_ value: Value) {
-        
-        publishImp(value)
+        self.value.publish(value)
     }
     
-    private let publishImp: (Value) -> Void
+    private let value: any PubChannel<Value>
 }
 
 extension PubChannel {
-    
     public func erase() -> AnyPubChannel<Value> {
-        
-        AnyPubChannel(channel: self)
+        .init(channel: self)
     }
 }
 
 extension PubChannel where Value == Void {
-    
     public func publish() {
-        
         self.publish(())
     }
 }
 
-public protocol SubChannel {
-
+public protocol SubChannel<Value>: Sendable {
     associatedtype Value
+    associatedtype Subscription: Observer.Subscription
 
-    func subscribe(_ handler: @escaping (Value) -> Void) -> Subscription
+    func subscribe(_ handler: @escaping @Sendable (Value) -> Void) -> Subscription
 }
 
-public class AnySubChannel<Value> : SubChannel {
-    
-    convenience init<Channel: SubChannel>(channel: Channel) where Channel.Value == Value {
-        
-        self.init(subscribeImp: channel.subscribe)
+public struct AnySubChannel<Value>: SubChannel {
+    init<Channel: SubChannel<Value>>(channel: Channel) {
+        self.value = channel
     }
     
-    init(subscribeImp: @escaping (@escaping (Value) -> Void) -> Subscription) {
-        
-        self.subscribeImp = subscribeImp
+    public func subscribe(_ handler: @escaping @Sendable (Value) -> Void) -> AnySubscription {
+        value.subscribe(handler).erase()
     }
     
-    public func subscribe(_ handler: @escaping (Value) -> Void) -> Subscription {
-        
-        return subscribeImp(handler)
-    }
-    
-    private let subscribeImp: (@escaping (Value) -> Void) -> Subscription
+    private let value: any SubChannel<Value>
 }
 
 extension SubChannel {
-    
     public func erase() -> AnySubChannel<Value> {
-        
-        AnySubChannel(channel: self)
+        .init(channel: self)
     }
 }
 
 extension SubChannel where Value == Void {
-    
-    public func subscribe(_ handler: @escaping () -> Void) -> Subscription {
-        
+    public func subscribe(_ handler: @escaping @Sendable () -> Void) -> Subscription {
         self.subscribe { _ in handler() }
     }
 }
 
 public typealias Channel = PubChannel & SubChannel
+public typealias ChannelOf<Value> = PubChannel<Value> & SubChannel<Value>
 
-public class AnyChannel<Value> : Channel {
-    
-    convenience init<ChannelType: Channel>(channel: ChannelType) where ChannelType.Value == Value {
-        
-        self.init(
-            pubChannel: channel.erase(),
-            subChannel: channel.erase()
-        )
+public struct AnyChannel<Value> : Channel {
+    init<ChannelType: ChannelOf<Value>>(channel: ChannelType) {
+        self.value = channel
     }
-    
-    init(
-        pubChannel: AnyPubChannel<Value>,
-        subChannel: AnySubChannel<Value>
-    ) {
-        
-        self.pubChannel = pubChannel
-        self.subChannel = subChannel
-    }
-    
+
     public func publish(_ value: Value) {
-        
-        pubChannel.publish(value)
+        self.value.publish(value)
     }
     
-    public func subscribe(_ handler: @escaping (Value) -> Void) -> Subscription {
-        
-        return subChannel.subscribe(handler)
+    public func subscribe(_ handler: @escaping @Sendable (Value) -> Void) -> AnySubscription {
+        self.value.subscribe(handler).erase()
     }
     
-    private let pubChannel: AnyPubChannel<Value>
-    private let subChannel: AnySubChannel<Value>
+    private let value: any ChannelOf<Value>
 }
 
 extension PubChannel where Self: SubChannel {
-    
     public func erase() -> AnyChannel<Value> {
-        
-        AnyChannel(channel: self)
+        .init(channel: self)
     }
 }

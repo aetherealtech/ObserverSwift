@@ -4,49 +4,83 @@
 
 import Foundation
 
-open class Subscription : Hashable {
+public protocol Subscription: Sendable {
+    func cancel()
+}
 
-    public init() {
-
+public struct AnySubscription: Subscription {
+    init(erasing value: some Subscription) {
+        self.value = value
     }
-
-    public static func ==(lhs: Subscription, rhs: Subscription) -> Bool {
-
-        lhs === rhs
+    
+    public func cancel() {
+        value.cancel()
     }
+    
+    private let value: any Subscription
+}
 
-    public func hash(into hasher: inout Hasher) {
-
-        ObjectIdentifier(self).hash(into: &hasher)
+public extension Subscription {
+    func erase() -> AnySubscription {
+        .init(erasing: self)
     }
 }
 
-extension Subscription {
-
-    public func store(in set: inout Set<Subscription>) {
-
-        set.insert(self)
+public struct AutoSubscription: ~Copyable, Sendable {
+    init(subscription: some Subscription) {
+        cancel = { subscription.cancel() }
     }
+    
+    deinit {
+        cancel()
+    }
+    
+    private let cancel: @Sendable () -> Void
+}
 
-    public func remove(from set: inout Set<Subscription>) {
 
-        set.remove(self)
+public extension Subscription {
+    func autoCancel() -> AutoSubscription {
+        .init(subscription: self)
     }
 }
 
-final public class AggregateSubscription : Subscription, ExpressibleByArrayLiteral {
+extension AutoSubscription {
+    public consuming func store(in collection: inout some RangeReplaceableCollection<AutoSubscription>) {
+        collection.append(self)
+    }
+}
 
-    public typealias ArrayLiteralElement = Subscription
+public struct AggregateSubscription : Subscription, ExpressibleByArrayLiteral {
+    public typealias ArrayLiteralElement = any Subscription
 
-    public init(arrayLiteral elements: Subscription...) {
-
-        self.subscriptions = Set<Subscription>(elements)
+    public init(arrayLiteral elements: any Subscription...) {
+        self.subscriptions = .init(elements)
     }
 
-    public init<Subscriptions: Sequence>(_ subscriptions: Subscriptions) where Subscriptions.Element : Subscription {
-
-        self.subscriptions = Set<Subscription>(subscriptions.map { value in value as Subscription })
+    public init(_ subscriptions: some Sequence<some Subscription>) {
+        self.subscriptions = .init(subscriptions.map { $0 as any Subscription })
+    }
+    
+    public init(_ subscriptions: some Sequence<any Subscription>) {
+        self.subscriptions = .init(subscriptions)
+    }
+    
+    public func cancel() {
+        subscriptions.forEach { subscription in subscription.cancel() }
     }
 
-    private let subscriptions: Set<Subscription>
+    private let subscriptions: [any Subscription]
+}
+
+extension Sequence where Element: Subscription {
+    var aggregated: AggregateSubscription {
+        .init(self)
+    }
+}
+
+extension Sequence where Element == any Subscription {
+    var aggregated: AggregateSubscription {
+        .init(self)
+    }
 }

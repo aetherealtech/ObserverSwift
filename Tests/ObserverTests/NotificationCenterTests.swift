@@ -5,71 +5,79 @@
 //  Created by Daniel Coleman on 11/18/21.
 //
 
+import Assertions
+import Synchronization
 import XCTest
+
 @testable import Observer
 
-class NotificationCenterTests: XCTestCase {
-
-    let testNotificationName = Notification.Name(rawValue: "SomeNotification")
+final class NotificationCenterTests: XCTestCase {
+    private let testNotificationName = Notification.Name(rawValue: "SomeNotification")
 
     func testPublish() throws {
+        let channel = NotificationCenter.default
+            .channel(for: testNotificationName)
 
-        let channel = NotificationCenter.default.channel(for: testNotificationName)
-
+        @Synchronized
         var receivedNotification: Notification? = nil
 
-        NotificationCenter.default.addObserver(forName: testNotificationName, object: nil, queue: nil) { notification in
+        NotificationCenter.default
+            .addObserver(
+                forName: testNotificationName,
+                object: nil,
+                queue: nil
+            ) { [_receivedNotification] notification in
+                _receivedNotification.wrappedValue = notification
+            }
 
-            receivedNotification = notification
-        }
-
-        let testData: NotificationData = ("someValue", ["someKey": 58])
+        let testData: NotificationCenterChannel.Value = ("someValue", ["someKey": 58])
 
         channel.publish(testData)
 
-        XCTAssertEqual(receivedNotification!.object as! String, testData.object as! String)
-        XCTAssertEqual(receivedNotification!.userInfo as! [String: Int], testData.userInfo as! [String: Int])
+        try assertEqual(receivedNotification!.object as! String, testData.object as! String)
+        try assertEqual(receivedNotification!.userInfo as! [String: Int], testData.userInfo as! [String: Int])
     }
 
     func testSubscribe() throws {
+        let channel = NotificationCenter.default
+            .channel(for: testNotificationName)
 
-        let channel = NotificationCenter.default.channel(for: testNotificationName)
+        @Synchronized
+        var receivedData: NotificationCenterChannel.Value?
 
-        var receivedData: NotificationData?
-
-        let subscription = channel.subscribe { object, userInfo in
-
-            receivedData = (object, userInfo)
+        _ = channel.subscribe { [_receivedData] object, userInfo in
+            _receivedData.wrappedValue = (object, userInfo)
         }
 
-        let testData: NotificationData = ("someValue", ["someKey": 58])
+        let testData: NotificationCenterChannel.Value = ("someValue", ["someKey": 58])
 
-        NotificationCenter.default.post(name: testNotificationName, object: testData.object, userInfo: testData.userInfo)
+        NotificationCenter.default.post(
+            name: testNotificationName,
+            object: testData.object,
+            userInfo: testData.userInfo
+        )
 
-        XCTAssertEqual(receivedData!.object as! String, testData.object as! String)
-        XCTAssertEqual(receivedData!.userInfo as! [String: Int], testData.userInfo as! [String: Int])
-
-        withExtendedLifetime(subscription) {  }
+        try assertEqual(receivedData!.object as! String, testData.object as! String)
+        try assertEqual(receivedData!.userInfo as! [String: Int], testData.userInfo as! [String: Int])
     }
 
     func testUnsubscribe() throws {
+        let channel = NotificationCenter.default
+            .channel(for: testNotificationName)
 
-        let channel = NotificationCenter.default.channel(for: testNotificationName)
+        @Synchronized
+        var receivedData: NotificationCenterChannel.Value?
 
-        var receivedData: NotificationData?
-
-        var subscription: Subscription? = channel.subscribe { object, userInfo in
-
-            receivedData = (object, userInfo)
+        let subscription = channel.subscribe { [_receivedData] object, userInfo in
+            _receivedData.wrappedValue = (object, userInfo)
         }
 
-        let testData: NotificationData = ("someValue", ["someKey": 58])
+        let testData: NotificationCenterChannel.Value = ("someValue", ["someKey": 58])
 
-        withExtendedLifetime(subscription) {  }
-        subscription = nil
+        subscription.cancel()
 
         NotificationCenter.default.post(name: testNotificationName, object: testData.object, userInfo: testData.userInfo)
 
-        XCTAssertNil(receivedData)
+        try assertNil(receivedData)
     }
 }

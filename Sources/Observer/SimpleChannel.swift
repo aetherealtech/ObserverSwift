@@ -3,80 +3,66 @@
 //
 
 import Foundation
-import CoreExtensions
+import Synchronization
 
-public class SimpleChannel<Value> : Channel {
+public final class SimpleChannel<Value> : Channel {
+    public struct Subscription: Observer.Subscription {
+        fileprivate init(
+            subscribers: Synchronized<Set<Subscriber>>,
+            subscriber: Subscriber
+        ) {
+            self.subscriber = subscriber
+            
+            _subscribers = subscribers
+        }
 
-    public init() {
+        public func cancel() {
+            _subscribers.wrappedValue.remove(subscriber)
+        }
 
+        private let subscriber: Subscriber
+        
+        private var _subscribers: Synchronized<Set<Subscriber>>
     }
 
-    public func subscribe(_ handler: @escaping (Value) -> Void) -> Subscription {
+    public init() {}
 
+    public func subscribe(_ handler: @escaping @Sendable (Value) -> Void) -> Subscription {
         let subscriber = Subscriber(handler: handler)
 
-        subscribers.exclusiveLock({ subscribers in _ = subscribers.insert(subscriber) })
+        _subscribers.wrappedValue.insert(subscriber)
 
-        return SimpleSubscription(
-            channel: self,
+        return .init(
+            subscribers: _subscribers,
             subscriber: subscriber
         )
     }
 
     public func publish(_ value: Value) {
-
-        let subscribers = subscribers.value
-
-        subscribers
+        _subscribers
+            .wrappedValue
             .forEach { subscriber in subscriber.receive(value) }
     }
 
-    class Subscriber : Equatable, Hashable {
-
-        init(handler: @escaping (Value) -> Void) {
-
+    fileprivate final class Subscriber: Hashable, Sendable {
+        init(handler: @escaping @Sendable (Value) -> Void) {
             self.handler = handler
         }
 
         func receive(_ value: Value) {
-
             handler(value)
         }
 
         static func ==(lhs: Subscriber, rhs: Subscriber) -> Bool {
-
             lhs === rhs
         }
 
-        private let handler: (Value) -> Void
-
         func hash(into hasher: inout Hasher) {
-
             ObjectIdentifier(self).hash(into: &hasher)
         }
+        
+        private let handler: @Sendable (Value) -> Void
     }
 
-    class SimpleSubscription : Subscription {
-
-        init(
-            channel: SimpleChannel,
-            subscriber: Subscriber
-        ) {
-
-            self.channel = channel
-            self.subscriber = subscriber
-        }
-
-        deinit {
-
-            guard let channel = self.channel else { return }
-
-            channel.subscribers.exclusiveLock({ subscribers in _ = subscribers.remove(subscriber) })
-        }
-
-        private weak var channel: SimpleChannel?
-        private let subscriber: Subscriber
-    }
-
-    private var subscribers = Atomic<Set<Subscriber>>([])
+    private let _subscribers = Synchronized<Set<Subscriber>>(wrappedValue: [])
 }

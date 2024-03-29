@@ -58,8 +58,14 @@ public extension AutoSubscription {
     }
 }
 
-extension AutoSubscription {
-    public consuming func store(in collection: inout some RangeReplaceableCollection<AutoSubscription>) {
+public extension AutoSubscription {
+    consuming func store(in collection: inout some RangeReplaceableCollection<AutoSubscription>) {
+        collection.append(self)
+    }
+}
+
+public extension SharedAutoSubscription {
+    func store(in collection: inout some RangeReplaceableCollection<SharedAutoSubscription>) {
         collection.append(self)
     }
 }

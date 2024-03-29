@@ -38,9 +38,17 @@ public struct AutoSubscription: ~Copyable, Sendable {
     private let cancel: @Sendable () -> Void
 }
 
-public final class SharedAutoSubscription: Sendable {
+public final class SharedAutoSubscription: Hashable, Sendable {
     init(subscription: consuming AutoSubscription) {
         self.subscription = subscription
+    }
+    
+    public static func == (lhs: SharedAutoSubscription, rhs: SharedAutoSubscription) -> Bool {
+        lhs === rhs
+    }
+    
+    public func hash(into hasher: inout Hasher) {
+        ObjectIdentifier(self).hash(into: &hasher)
     }
     
     private let subscription: AutoSubscription
@@ -65,8 +73,8 @@ public extension AutoSubscription {
 }
 
 public extension SharedAutoSubscription {
-    func store(in collection: inout some RangeReplaceableCollection<SharedAutoSubscription>) {
-        collection.append(self)
+    func store(in collection: inout Set<SharedAutoSubscription>) {
+        collection.insert(self)
     }
 }
 

@@ -90,3 +90,17 @@ public struct PublisherChannel<Publisher: Combine.Publisher>: SubChannel where P
     
     private let publisherChannel: ThrowingPublisherChannel<Publisher>
 }
+
+@available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
+public extension Publisher {
+    func publish() -> ThrowingPublisherChannel<Self> {
+        .init(publisher: self)
+    }
+}
+
+@available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
+public extension Publisher where Failure == Never {
+    func publish() -> PublisherChannel<Self> {
+        .init(publisher: self)
+    }
+}

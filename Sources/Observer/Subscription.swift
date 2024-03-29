@@ -38,9 +38,22 @@ public struct AutoSubscription: ~Copyable, Sendable {
     private let cancel: @Sendable () -> Void
 }
 
+public final class SharedAutoSubscription: Sendable {
+    init(subscription: consuming AutoSubscription) {
+        self.subscription = subscription
+    }
+    
+    private let subscription: AutoSubscription
+}
 
 public extension Subscription {
     func autoCancel() -> AutoSubscription {
+        .init(subscription: self)
+    }
+}
+
+public extension AutoSubscription {
+    consuming func share() -> SharedAutoSubscription {
         .init(subscription: self)
     }
 }

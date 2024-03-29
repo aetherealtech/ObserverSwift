@@ -5,7 +5,7 @@
 import Foundation
 import Synchronization
 
-public final class SimpleChannel<Value> : Channel {
+public struct SimpleChannel<Value> : Channel {
     public struct Subscription: Observer.Subscription {
         fileprivate init(
             subscribers: Synchronized<Set<Subscriber>>,

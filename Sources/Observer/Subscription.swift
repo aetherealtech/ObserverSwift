@@ -78,7 +78,7 @@ public extension SharedAutoSubscription {
     }
 }
 
-public struct AggregateSubscription : Subscription, ExpressibleByArrayLiteral {
+public struct AggregateSubscription: Subscription, ExpressibleByArrayLiteral {
     public typealias ArrayLiteralElement = any Subscription
 
     public init(arrayLiteral elements: any Subscription...) {
@@ -110,4 +110,12 @@ public extension Sequence where Element == any Subscription {
     var aggregated: AggregateSubscription {
         .init(self)
     }
+}
+
+public func aggregate<each S: Subscription>(subscriptions: repeat each S) -> AggregateSubscription {
+    var collectedSubscriptions: [any Subscription] = []
+    
+    repeat collectedSubscriptions.append(each subscriptions)
+    
+    return .init(collectedSubscriptions)
 }

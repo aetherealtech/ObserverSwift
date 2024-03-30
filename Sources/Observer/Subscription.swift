@@ -100,13 +100,13 @@ public struct AggregateSubscription : Subscription, ExpressibleByArrayLiteral {
     private let subscriptions: [any Subscription]
 }
 
-extension Sequence where Element: Subscription {
+public extension Sequence where Element: Subscription {
     var aggregated: AggregateSubscription {
         .init(self)
     }
 }
 
-extension Sequence where Element == any Subscription {
+public extension Sequence where Element == any Subscription {
     var aggregated: AggregateSubscription {
         .init(self)
     }
